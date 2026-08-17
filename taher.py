@@ -16,14 +16,18 @@ videos = {
     7: '7.mp4',
     8: '8.mp4',
     9: '9.mp4',
-    10: '10.mp4'
+    10: '10.mp4',
+    11: '11.mp4',
+    12: '12.mp4',
+    13: '13.mp4',
+    15: '14.mp4',
 }
 
 # Listen for the /roll command
 @bot.message_handler(commands=['roll'])
 def send_roll_gif(message):
-    # Pick a random number between 1 and 10
-    roll_result = random.randint(1, 10)
+    # Pick a random number between 1 and 14
+    roll_result = random.randint(1, 14)
     
     # Get the matching filename from your dictionary (e.g., 'silent_roll1.mp4')
     video_filename = videos.get(roll_result)
