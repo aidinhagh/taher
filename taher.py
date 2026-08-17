@@ -69,7 +69,25 @@ def send_roll_gif(message):
             cached_ids[roll_result] = msg.animation.file_id
             save_cached_ids(cached_ids)
 
-# --- 5. Inline Mode: The Mystery Box! ---
+# --- 5. Keyword Scanner for "taher" / "طاهر" ---
+# Triggers if the name is found anywhere in the message text
+@bot.message_handler(func=lambda message: message.text and ('taher' in message.text.lower() or 'طاهر' in message.text))
+def handle_taher_trigger(message):
+    roll_result = str(random.randint(1, 14))
+    cached_ids = load_cached_ids()
+    
+    if roll_result in cached_ids:
+        # Send the cached video and reply directly to the person who said the name
+        bot.send_animation(message.chat.id, cached_ids[roll_result], reply_to_message_id=message.message_id)
+    else:
+        # Fallback if it isn't cached yet
+        filename = f"{roll_result}.mp4"
+        with open(filename, 'rb') as video:
+            msg = bot.send_animation(message.chat.id, video, reply_to_message_id=message.message_id)
+            cached_ids[roll_result] = msg.animation.file_id
+            save_cached_ids(cached_ids)
+
+# --- 6. Inline Mode: The Mystery Box! ---
 @bot.inline_handler(lambda query: True)
 def handle_inline_query(inline_query):
     cached_ids = load_cached_ids()
@@ -89,18 +107,18 @@ def handle_inline_query(inline_query):
     
     # Create the "Reveal" button attached to the video
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🎲 Click to Reveal Roll!", callback_data="reveal_roll"))
+    markup.add(types.InlineKeyboardButton("🎲 Click to Reveal Taher!", callback_data="reveal_roll"))
     
     # Send ONLY the mystery cover to the inline menu
     result = types.InlineQueryResultCachedMpeg4Gif(
         id='mystery_roll',
         mpeg4_file_id=cover_id,
-        caption="🎲 Rolling the dice...",
+        caption="Summoning Taher...",
         reply_markup=markup
     )
     bot.answer_inline_query(inline_query.id, [result], cache_time=0)
 
-# --- 6. Handle the Button Click! ---
+# --- 7. Handle the Button Click! ---
 @bot.callback_query_handler(func=lambda call: call.data == 'reveal_roll')
 def handle_reveal(call):
     cached_ids = load_cached_ids()
@@ -110,7 +128,7 @@ def handle_reveal(call):
     file_id = cached_ids.get(roll_result)
     
     # Swap the cover video for the real roll!
-    media = types.InputMediaAnimation(media=file_id, caption=f"I rolled a {roll_result}!")
+    media = types.InputMediaAnimation(media=file_id, caption="Here is Taher!")
     
     try:
         # Edit the message in the chat
@@ -120,7 +138,7 @@ def handle_reveal(call):
     except Exception as e:
         print(f"Error revealing: {e}")
 
-# --- 7. Start Everything ---
+# --- 8. Start Everything ---
 if __name__ == "__main__":
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
