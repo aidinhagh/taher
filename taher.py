@@ -59,7 +59,6 @@ def setup_bot(message):
 def send_roll_gif(message):
     roll_result = str(random.randint(1, 14))
     cached_ids = load_cached_ids()
-    bot.reply_to(message, f"You rolled a {roll_result}!")
     
     if roll_result in cached_ids:
         bot.send_animation(message.chat.id, cached_ids[roll_result])
