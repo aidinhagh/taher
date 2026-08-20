@@ -18,12 +18,11 @@ def run_server():
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
 
-# --- 2. Bot Setup & Memory Systems ---
+# --- 2. Bot Setup & Cache System ---
 TOKEN = os.environ.get('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
 CACHE_FILE = 'cached_ids.json'
-GROUPS_FILE = 'groups.json'
 
 def load_cached_ids():
     if os.path.exists(CACHE_FILE):
@@ -37,22 +36,6 @@ def load_cached_ids():
 def save_cached_ids(data):
     with open(CACHE_FILE, 'w') as f:
         json.dump(data, f)
-
-# Helper function to memorize groups safely
-def remember_group(chat_id, chat_type):
-    if chat_type in ['group', 'supergroup']:
-        groups = []
-        if os.path.exists(GROUPS_FILE):
-            try:
-                with open(GROUPS_FILE, 'r') as f:
-                    groups = json.load(f)
-            except Exception:
-                pass
-        
-        if chat_id not in groups:
-            groups.append(chat_id)
-            with open(GROUPS_FILE, 'w') as f:
-                json.dump(groups, f)
 
 # --- 3. The Automatic Setup Command ---
 @bot.message_handler(commands=['setup'])
@@ -88,16 +71,13 @@ def setup_bot(message):
 # --- 4. Standard /roll Command ---
 @bot.message_handler(commands=['roll'])
 def send_roll_gif(message):
-    remember_group(message.chat.id, message.chat.type)
-    
     roll_result = str(random.randint(1, 14))
     cached_ids = load_cached_ids()
-    
+    bot.reply_to(message, f"You rolled a {roll_result}!")
     
     if roll_result in cached_ids:
         bot.send_animation(message.chat.id, cached_ids[roll_result])
     else:
-        # FALLBACK: If cache is empty, read directly from file!
         filename = f"{roll_result}.mp4"
         if os.path.exists(filename):
             with open(filename, 'rb') as video:
@@ -108,15 +88,12 @@ def send_roll_gif(message):
 # --- 5. Keyword Scanner for "taher" / "طاهر" ---
 @bot.message_handler(func=lambda message: message.text and ('taher' in message.text.lower() or 'طاهر' in message.text))
 def handle_taher_trigger(message):
-    remember_group(message.chat.id, message.chat.type)
-    
     roll_result = str(random.randint(1, 14))
     cached_ids = load_cached_ids()
     
     if roll_result in cached_ids:
         bot.send_animation(message.chat.id, cached_ids[roll_result], reply_to_message_id=message.message_id)
     else:
-        # FALLBACK: If cache is empty, read directly from file!
         filename = f"{roll_result}.mp4"
         if os.path.exists(filename):
             with open(filename, 'rb') as video:
@@ -124,13 +101,10 @@ def handle_taher_trigger(message):
                 cached_ids[roll_result] = msg.animation.file_id
                 save_cached_ids(cached_ids)
 
-# --- 6. The NEW Manual Dice Reactor ---
+# --- 6. The Manual Dice Reactor ---
 # If anyone sends a dice emoji in the chat, the bot will instantly react to it!
 @bot.message_handler(content_types=['dice'])
 def handle_dice(message):
-    remember_group(message.chat.id, message.chat.type)
-    
-    # Check if the animated emoji is actually a 6-sided dice (Telegram also has darts, basketballs, etc.)
     if message.dice.emoji == '🎲':
         roll_value = message.dice.value 
         time.sleep(4) # Wait 4 seconds for the animation to land
@@ -154,7 +128,6 @@ def handle_inline_query(inline_query):
     cached_ids = load_cached_ids()
     cover_id = cached_ids.get("0")
     
-    # Safe check: if we don't have the cover image cached, show an error panel
     if not cover_id:
         result = types.InlineQueryResultArticle(
             id='error',
@@ -190,46 +163,10 @@ def handle_reveal(call):
         except Exception:
             pass
 
-# --- 8. The Background Auto-Dice Scheduler ---
-def run_dice_scheduler():
-    INTERVAL_SECONDS = 3600 # 1 hour
-    
-    while True:
-        time.sleep(INTERVAL_SECONDS)
-        
-        if os.path.exists(GROUPS_FILE):
-            try:
-                with open(GROUPS_FILE, 'r') as f:
-                    groups = json.load(f)
-                    
-                for target_group in groups:
-                    try:
-                        dice_msg = bot.send_dice(target_group)
-                        roll_value = dice_msg.dice.value 
-                        time.sleep(4)
-                        
-                        cached_ids = load_cached_ids()
-                        cache_key = f"dice_{roll_value}"
-                        
-                        if cache_key in cached_ids:
-                            bot.send_animation(target_group, cached_ids[cache_key])
-                        else:
-                            filename = f"dice{roll_value}.mp4"
-                            if os.path.exists(filename):
-                                with open(filename, 'rb') as video:
-                                    bot.send_animation(target_group, video)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-# --- 9. Start Everything ---
+# --- 8. Start Everything ---
 if __name__ == "__main__":
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
-    
-    scheduler_thread = threading.Thread(target=run_dice_scheduler, daemon=True)
-    scheduler_thread.start()
     
     print("Bot is starting...")
     bot.infinity_polling()
